@@ -342,6 +342,44 @@ ALL_OBJCCFLAGS = $(OBJCC_PRECOMPILED_HEADERS_INCLUDE_FLAGS) \
    $(GNUSTEP_FRAMEWORKS_FLAGS) \
    $(SYSTEM_INCLUDES)
 
+SWIFT_FRONTEND = $(GNUSTEP_SWIFT_SWIFT_FRONTEND)
+SWIFT = $(SWIFT_FRONTEND)
+SWIFT_RESOURCE_DIR = $(GNUSTEP_SWIFT_RESOURCE_DIR)
+ifeq ($(GNUSTEP_SWIFT_AUTOLINK_EXTRACT),)
+  SWIFT_AUTOLINK_EXTRACT = $(dir $(GNUSTEP_SWIFT_REAL_SWIFTC))swift-autolink-extract
+else
+  SWIFT_AUTOLINK_EXTRACT = $(GNUSTEP_SWIFT_AUTOLINK_EXTRACT)
+endif
+SWIFT_MODULE_CACHE_DIR = $(GNUSTEP_OBJ_INSTANCE_DIR)/SwiftModuleCache
+SWIFT_OBJC_RUNTIME ?= gnustep-2.0
+SWIFT_RUNTIME_PLATFORM ?= linux
+SWIFT_RUNTIME_LIB_DIR = $(SWIFT_RESOURCE_DIR)/$(SWIFT_RUNTIME_PLATFORM)
+SWIFT_RUNTIME_ARCH_LIB_DIR = $(SWIFT_RUNTIME_LIB_DIR)/$(GNUSTEP_TARGET_CPU)
+SWIFT_BASE_LIBS ?= -lgnustep-base
+SWIFT_GUI_LIBS ?= -lgnustep-gui
+SWIFT_LINK_LIB_DIRS = -L$(GNUSTEP_SWIFT_LIBOBJC2_LIBDIR) -L$(SWIFT_RUNTIME_LIB_DIR) -L$(SWIFT_RUNTIME_ARCH_LIB_DIR)
+SWIFT_LINK_RPATHS = -Wl,-rpath,$(GNUSTEP_SWIFT_LIBOBJC2_LIBDIR) -Wl,-rpath,$(SWIFT_RUNTIME_LIB_DIR) -Wl,-rpath,$(SWIFT_RUNTIME_ARCH_LIB_DIR)
+
+ALL_SWIFTFLAGS = \
+   -gnustep-objc-interop \
+   -disable-objc-attr-requires-foundation-module \
+   -validate-tbd-against-ir=none \
+   -I . \
+   -I $(GNUSTEP_SWIFT_GNUSTEP_HEADERS) \
+   -Xcc -I$(GNUSTEP_SWIFT_GNUSTEP_HEADERS) \
+   -Xcc -I$(GNUSTEP_SWIFT_LIBOBJC2_SRC) \
+   -Xcc -I$(GNUSTEP_SWIFT_LIBOBJC2_CONFIG_INCLUDE) \
+   -Xcc -fmodules \
+   -Xcc -fmodule-map-file=$(GNUSTEP_SWIFT_GNUSTEP_MODULEMAP) \
+   -Xcc -fobjc-runtime=$(SWIFT_OBJC_RUNTIME) \
+   $(foreach dir,$($(GNUSTEP_INSTANCE)_SWIFT_INCLUDE_DIRS),-I $(dir) -Xcc -I$(dir)) \
+   $(foreach modulemap,$($(GNUSTEP_INSTANCE)_SWIFT_CLANG_MODULEMAPS),-Xcc -fmodule-map-file=$(modulemap)) \
+   $(ADDITIONAL_SWIFTFLAGS) $(AUXILIARY_SWIFTFLAGS)
+
+ifeq ($($(GNUSTEP_INSTANCE)_GENERATE_SWIFT_OBJC_HEADER),yes)
+  ALL_OBJCFLAGS += -I$(GNUSTEP_OBJ_INSTANCE_DIR)
+endif
+
 INTERNAL_CLASSPATHFLAGS = -classpath ./$(subst ::,:,:$(strip $(ADDITIONAL_CLASSPATH)):)$(CLASSPATH)
 
 ALL_JAVACFLAGS = $(INTERNAL_CLASSPATHFLAGS) $(INTERNAL_JAVACFLAGS) \
@@ -373,6 +411,16 @@ ALL_LIB_DIRS = $(ADDITIONAL_FRAMEWORK_DIRS) $(AUXILIARY_FRAMEWORK_DIRS) \
    $(GNUSTEP_LIBRARIES_FLAGS) \
    $(GNUSTEP_FRAMEWORKS_FLAGS) \
    $(SYSTEM_LIB_DIR)
+
+ifneq ($($(GNUSTEP_INSTANCE)_SWIFT_FILES),)
+  ALL_LIB_DIRS := $(SWIFT_LINK_LIB_DIRS) $(ALL_LIB_DIRS)
+  ALL_LDFLAGS += $(SWIFT_LINK_RPATHS)
+  ifeq ($(INTERNAL_NEEDS_GUI), yes)
+    ALL_LIBS := $(SWIFT_GUI_LIBS) $(SWIFT_BASE_LIBS) $(ALL_LIBS)
+  else
+    ALL_LIBS := $(SWIFT_BASE_LIBS) $(ALL_LIBS)
+  endif
+endif
 
 # We use .plist (property-list files, see gnustep-base) in quite a few
 # cases.  Whenever a .plist file is required, you can/will be allowed
@@ -455,7 +503,7 @@ endif
 .SUFFIXES:
 
 # Then define our own.
-.SUFFIXES: .m .c .psw .java .h .cpp .cxx .C .cc .cp .mm
+.SUFFIXES: .m .c .psw .java .h .cpp .cxx .C .cc .cp .mm .swift
 
 .PRECIOUS: %.c %.h $(GNUSTEP_OBJ_DIR)/%$(OEXT)
 
@@ -576,6 +624,52 @@ $(GNUSTEP_OBJ_INSTANCE_DIR)/%.mm$(OEXT) : %.mm
 	      $(filter-out $($<_FILE_FILTER_OUT_FLAGS),$(ALL_CPPFLAGS) \
 	                                                $(ALL_OBJCCFLAGS)) \
 	      $($<_FILE_FLAGS) -o $@$(END_ECHO)
+
+ifneq ($($(GNUSTEP_INSTANCE)_SWIFT_FILES),)
+.PHONY: internal-swift-check-profile
+internal-swift-check-profile:
+	@if test -z "$(strip $(SWIFT))"; then echo "GNUstep Swift profile is missing GNUSTEP_SWIFT_SWIFT_FRONTEND"; exit 1; fi
+	@if ! command -v "$(SWIFT)" >/dev/null 2>&1 && test ! -x "$(SWIFT)"; then echo "GNUstep Swift compiler is not executable: $(SWIFT)"; exit 1; fi
+	@if test ! -d "$(SWIFT_RESOURCE_DIR)"; then echo "GNUstep Swift resource directory is missing: $(SWIFT_RESOURCE_DIR)"; exit 1; fi
+	@if ! command -v "$(SWIFT_AUTOLINK_EXTRACT)" >/dev/null 2>&1 && test ! -x "$(SWIFT_AUTOLINK_EXTRACT)"; then echo "GNUstep Swift autolink extractor is not executable: $(SWIFT_AUTOLINK_EXTRACT)"; exit 1; fi
+	@if test ! -d "$(GNUSTEP_SWIFT_GNUSTEP_HEADERS)"; then echo "GNUstep Swift headers directory is missing: $(GNUSTEP_SWIFT_GNUSTEP_HEADERS)"; exit 1; fi
+	@if test ! -f "$(GNUSTEP_SWIFT_GNUSTEP_MODULEMAP)"; then echo "GNUstep Swift GNUstep module map is missing: $(GNUSTEP_SWIFT_GNUSTEP_MODULEMAP)"; exit 1; fi
+	@if test ! -d "$(GNUSTEP_SWIFT_LIBOBJC2_SRC)"; then echo "GNUstep Swift libobjc2 source directory is missing: $(GNUSTEP_SWIFT_LIBOBJC2_SRC)"; exit 1; fi
+	@if test ! -d "$(GNUSTEP_SWIFT_LIBOBJC2_CONFIG_INCLUDE)"; then echo "GNUstep Swift libobjc2 config include directory is missing: $(GNUSTEP_SWIFT_LIBOBJC2_CONFIG_INCLUDE)"; exit 1; fi
+	@if test ! -d "$(GNUSTEP_SWIFT_LIBOBJC2_LIBDIR)"; then echo "GNUstep Swift libobjc2 library directory is missing: $(GNUSTEP_SWIFT_LIBOBJC2_LIBDIR)"; exit 1; fi
+endif
+
+$(GNUSTEP_OBJ_INSTANCE_DIR)/%.swift$(OEXT) : %.swift $($(GNUSTEP_INSTANCE)_SWIFT_FILES) internal-swift-check-profile
+	$(ECHO_COMPILING)$(MKDIRS) $(SWIFT_MODULE_CACHE_DIR); \
+	      $(SWIFT) -frontend \
+	      -resource-dir $(SWIFT_RESOURCE_DIR) \
+	      -module-cache-path $(SWIFT_MODULE_CACHE_DIR) \
+	      $(filter-out $($<_FILE_FILTER_OUT_FLAGS),$(ALL_SWIFTFLAGS)) \
+	      $($<_FILE_FLAGS) \
+	      -emit-object \
+	      -module-name $(SWIFT_MODULE_NAME) \
+	      -primary-file $< $(filter-out $<,$($(GNUSTEP_INSTANCE)_SWIFT_FILES)) \
+	      -o $@$(END_ECHO)
+
+$(GNUSTEP_OBJ_INSTANCE_DIR)/%.swift.autolink : $(GNUSTEP_OBJ_INSTANCE_DIR)/%.swift$(OEXT)
+	$(ECHO_NOTHING)$(SWIFT_AUTOLINK_EXTRACT) $< -o $@$(END_ECHO)
+
+$(SWIFT_OBJC_HEADER_FILE): $($(GNUSTEP_INSTANCE)_SWIFT_FILES) $(GNUSTEP_OBJ_INSTANCE_DIR) internal-swift-check-profile
+	$(ECHO_NOTHING)$(MKDIRS) $(SWIFT_MODULE_CACHE_DIR); \
+	      $(SWIFT) -frontend \
+	      -resource-dir $(SWIFT_RESOURCE_DIR) \
+	      -module-cache-path $(SWIFT_MODULE_CACHE_DIR) \
+	      $(ALL_SWIFTFLAGS) \
+	      -parse-as-library \
+	      -typecheck \
+	      -emit-objc-header \
+	      -emit-objc-header-path $@ \
+	      -module-name $(SWIFT_MODULE_NAME) \
+	      $($(GNUSTEP_INSTANCE)_SWIFT_FILES)$(END_ECHO)
+
+ifeq ($($(GNUSTEP_INSTANCE)_GENERATE_SWIFT_OBJC_HEADER),yes)
+$(OBJC_OBJ_FILES) $(OBJCC_OBJ_FILES): $(SWIFT_OBJC_HEADER_FILE)
+endif
 
 #
 # Special mingw specific rules to compile Windows resource files (.rc files)
@@ -772,6 +866,8 @@ endif
         print-gnustep-make-objc-libs \
         print-gnustep-make-base-libs \
         print-gnustep-make-gui-libs \
+        print-gnustep-make-swift-flags \
+        print-gnustep-make-swift-libs \
         print-gnustep-make-installation-domain \
         print-gnustep-make-host-dir \
         print-gnustep-make-host-ldir \
@@ -814,6 +910,12 @@ print-gnustep-make-base-libs:
 # Flags used when linking against Foundation and GUI
 print-gnustep-make-gui-libs:
 	@(echo $(ALL_LDFLAGS) $(CC_LDFLAGS) $(ALL_LIB_DIRS) $(ADDITIONAL_GUI_LIBS) $(AUXILIARY_GUI_LIBS) $(GUI_LIBS) $(BACKEND_LIBS) $(ADDITIONAL_TOOL_LIBS) $(AUXILIARY_TOOL_LIBS) $(FND_LIBS) $(ADDITIONAL_OBJC_LIBS) $(AUXILIARY_OBJC_LIBS) $(OBJC_LIBS) $(SYSTEM_LIBS) $(TARGET_SYSTEM_LIBS))
+
+print-gnustep-make-swift-flags:
+	@(echo $(ALL_SWIFTFLAGS))
+
+print-gnustep-make-swift-libs:
+	@(echo $(SWIFT_LINK_LIB_DIRS) $(SWIFT_LINK_RPATHS))
 
 print-gnustep-make-installation-domain:
 	@(echo $(GNUSTEP_INSTALLATION_DOMAIN))
