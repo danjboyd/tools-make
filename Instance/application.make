@@ -124,12 +124,13 @@ ifeq ($(findstring mingw32, $(GNUSTEP_TARGET_OS)), mingw32)
   ALL_LDFLAGS += -Wl,-subsystem,windows
 endif
 
-$(APP_FILE): $(OBJ_FILES_TO_LINK)
+$(APP_FILE): $(OBJ_FILES_TO_LINK) $(SWIFT_AUTOLINK_FILES)
 ifeq ($(OBJ_FILES_TO_LINK),)
 	$(WARNING_EMPTY_LINKING)
 endif
 	$(ECHO_LINKING)$(LD) $(ALL_LDFLAGS) $(CC_LDFLAGS) -o $(LDOUT)$@ \
-	$(OBJ_FILES_TO_LINK) $(ALL_LIB_DIRS) $(ALL_LIBS)$(END_ECHO)
+	$(OBJ_FILES_TO_LINK) $(SWIFT_AUTOLINK_ARGS) \
+	$(ALL_LIB_DIRS) $(ALL_LIBS)$(END_ECHO)
 
 #
 # Compilation targets

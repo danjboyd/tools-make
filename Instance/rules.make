@@ -187,6 +187,10 @@ endif
 # The list of JAVA source files from which to generate jni headers
 # are in the JAVA_JNI_FILES variable.
 #
+# The list of Swift source files to be compiled are in the SWIFT_FILES
+# variable.  Swift support is intentionally driven by the active GNUstep Swift
+# interop profile while the compiler interface is still being upstreamed.
+#
 # The list of WINDRES source files to be compiled
 # are in the WINDRES_FILES variable.
 # 
@@ -223,6 +227,17 @@ JAVA_OBJ_FILES = $(JAVA_OBJS)
 JAVA_JNI_OBJS = $(patsubst %.java,%.h,$($(GNUSTEP_INSTANCE)_JAVA_JNI_FILES))
 JAVA_JNI_OBJ_FILES = $(JAVA_JNI_OBJS)
 
+SWIFT_MODULE_NAME = $(strip $($(GNUSTEP_INSTANCE)_SWIFT_MODULE_NAME))
+ifeq ($(SWIFT_MODULE_NAME),)
+  SWIFT_MODULE_NAME = $(subst -,_,$(subst .,_,$(GNUSTEP_INSTANCE)))
+endif
+
+SWIFT_OBJS = $(patsubst %.swift,%.swift$(OEXT),$($(GNUSTEP_INSTANCE)_SWIFT_FILES))
+SWIFT_OBJ_FILES = $(addprefix $(GNUSTEP_OBJ_INSTANCE_DIR)/,$(SWIFT_OBJS))
+SWIFT_AUTOLINK_FILES = $(SWIFT_OBJ_FILES:%$(OEXT)=%.autolink)
+SWIFT_AUTOLINK_ARGS = $(addprefix @,$(SWIFT_AUTOLINK_FILES))
+SWIFT_OBJC_HEADER_FILE = $(GNUSTEP_OBJ_INSTANCE_DIR)/$(SWIFT_MODULE_NAME)-Swift.h
+
 PSWRAP_C_FILES = $(patsubst %.psw,%.c,$($(GNUSTEP_INSTANCE)_PSWRAP_FILES))
 PSWRAP_H_FILES = $(patsubst %.psw,%.h,$($(GNUSTEP_INSTANCE)_PSWRAP_FILES))
 PSWRAP_OBJS = $(patsubst %.psw,%.c$(OEXT),$($(GNUSTEP_INSTANCE)_PSWRAP_FILES))
@@ -255,7 +270,7 @@ OBJ_FILES = $($(GNUSTEP_INSTANCE)_OBJ_FILES)
 # OBJ_FILES_TO_LINK to '' we know if there is a link stage to be
 # performed at all (useful for example in bundles which can contain an
 # object file, or not).
-OBJ_FILES_TO_LINK = $(strip $(C_OBJ_FILES) $(OBJC_OBJ_FILES) $(CC_OBJ_FILES) $(OBJCC_OBJ_FILES) $(WINDRES_OBJ_FILES) $(SUBPROJECT_OBJ_FILES) $(OBJ_FILES))
+OBJ_FILES_TO_LINK = $(strip $(C_OBJ_FILES) $(OBJC_OBJ_FILES) $(CC_OBJ_FILES) $(OBJCC_OBJ_FILES) $(SWIFT_OBJ_FILES) $(WINDRES_OBJ_FILES) $(SUBPROJECT_OBJ_FILES) $(OBJ_FILES))
 
 # This is the subset of OBJ_FILES_TO_LINK that includes all the files
 # that we compile ourselves.  Since we compile them ourselves, we are
@@ -265,7 +280,7 @@ OBJ_FILES_TO_LINK = $(strip $(C_OBJ_FILES) $(OBJC_OBJ_FILES) $(CC_OBJ_FILES) $(O
 # are obj files already available / built using some other process
 # over which we have no control, so we are not responsible for
 # creating the directories for them.
-OBJ_FILES_TO_LINK_THAT_WE_CREATE = $(strip $(C_OBJ_FILES) $(OBJC_OBJ_FILES) $(CC_OBJ_FILES) $(OBJCC_OBJ_FILES) $(WINDRES_OBJ_FILES))
+OBJ_FILES_TO_LINK_THAT_WE_CREATE = $(strip $(C_OBJ_FILES) $(OBJC_OBJ_FILES) $(CC_OBJ_FILES) $(OBJCC_OBJ_FILES) $(SWIFT_OBJ_FILES) $(SWIFT_AUTOLINK_FILES) $(WINDRES_OBJ_FILES))
 
 # OBJ_DIRS_TO_CREATE is the set of all directories that contain
 # OBJ_FILES_TO_LINK.  For example, if you want to compile
@@ -419,6 +434,8 @@ ADDITIONAL_OBJCFLAGS += $($(GNUSTEP_INSTANCE)_OBJCFLAGS)
 ADDITIONAL_CCFLAGS += $($(GNUSTEP_INSTANCE)_CCFLAGS)
 
 ADDITIONAL_OBJCCFLAGS += $($(GNUSTEP_INSTANCE)_OBJCCFLAGS)
+
+ADDITIONAL_SWIFTFLAGS += $($(GNUSTEP_INSTANCE)_SWIFTFLAGS)
 
 ADDITIONAL_LDFLAGS += $($(GNUSTEP_INSTANCE)_LDFLAGS)
 
