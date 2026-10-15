@@ -355,6 +355,12 @@ SWIFT_OBJC_RUNTIME ?= gnustep-2.0
 SWIFT_RUNTIME_PLATFORM ?= linux
 SWIFT_RUNTIME_LIB_DIR = $(SWIFT_RESOURCE_DIR)/$(SWIFT_RUNTIME_PLATFORM)
 SWIFT_RUNTIME_ARCH_LIB_DIR = $(SWIFT_RUNTIME_LIB_DIR)/$(GNUSTEP_TARGET_CPU)
+# swiftrt.o registers the protocol conformance, type metadata and other
+# Swift metadata sections of the image it is linked into with the Swift
+# runtime.  The Swift driver links it into every ELF executable and shared
+# object; without it, run-time conformance lookups (such as `x as? P` for a
+# Swift protocol P) never find the conformances defined in that image.
+SWIFT_RUNTIME_OBJ_FILE = $(SWIFT_RUNTIME_ARCH_LIB_DIR)/swiftrt.o
 SWIFT_BASE_LIBS ?= -lgnustep-base
 SWIFT_GUI_LIBS ?= -lgnustep-gui
 SWIFT_LINK_LIB_DIRS = -L$(GNUSTEP_SWIFT_LIBOBJC2_LIBDIR) -L$(SWIFT_RUNTIME_LIB_DIR) -L$(SWIFT_RUNTIME_ARCH_LIB_DIR)
@@ -414,7 +420,7 @@ ALL_LIB_DIRS = $(ADDITIONAL_FRAMEWORK_DIRS) $(AUXILIARY_FRAMEWORK_DIRS) \
 
 ifneq ($($(GNUSTEP_INSTANCE)_SWIFT_FILES),)
   ALL_LIB_DIRS := $(SWIFT_LINK_LIB_DIRS) $(ALL_LIB_DIRS)
-  ALL_LDFLAGS += $(SWIFT_LINK_RPATHS)
+  ALL_LDFLAGS += $(SWIFT_LINK_RPATHS) $(SWIFT_RUNTIME_OBJ_FILE)
   ifeq ($(INTERNAL_NEEDS_GUI), yes)
     ALL_LIBS := $(SWIFT_GUI_LIBS) $(SWIFT_BASE_LIBS) $(ALL_LIBS)
   else
@@ -631,6 +637,7 @@ internal-swift-check-profile:
 	@if test -z "$(strip $(SWIFT))"; then echo "GNUstep Swift profile is missing GNUSTEP_SWIFT_SWIFT_FRONTEND"; exit 1; fi
 	@if ! command -v "$(SWIFT)" >/dev/null 2>&1 && test ! -x "$(SWIFT)"; then echo "GNUstep Swift compiler is not executable: $(SWIFT)"; exit 1; fi
 	@if test ! -d "$(SWIFT_RESOURCE_DIR)"; then echo "GNUstep Swift resource directory is missing: $(SWIFT_RESOURCE_DIR)"; exit 1; fi
+	@if test ! -f "$(SWIFT_RUNTIME_OBJ_FILE)"; then echo "GNUstep Swift runtime registration object is missing: $(SWIFT_RUNTIME_OBJ_FILE)"; exit 1; fi
 	@if ! command -v "$(SWIFT_AUTOLINK_EXTRACT)" >/dev/null 2>&1 && test ! -x "$(SWIFT_AUTOLINK_EXTRACT)"; then echo "GNUstep Swift autolink extractor is not executable: $(SWIFT_AUTOLINK_EXTRACT)"; exit 1; fi
 	@if test ! -d "$(GNUSTEP_SWIFT_GNUSTEP_HEADERS)"; then echo "GNUstep Swift headers directory is missing: $(GNUSTEP_SWIFT_GNUSTEP_HEADERS)"; exit 1; fi
 	@if test ! -f "$(GNUSTEP_SWIFT_GNUSTEP_MODULEMAP)"; then echo "GNUstep Swift GNUstep module map is missing: $(GNUSTEP_SWIFT_GNUSTEP_MODULEMAP)"; exit 1; fi

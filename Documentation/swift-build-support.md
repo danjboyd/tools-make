@@ -69,8 +69,15 @@ The main overridable Swift rule variables are:
 * `SWIFT_RUNTIME_PLATFORM`
 * `SWIFT_RUNTIME_LIB_DIR`
 * `SWIFT_RUNTIME_ARCH_LIB_DIR`
+* `SWIFT_RUNTIME_OBJ_FILE`
 * `SWIFT_BASE_LIBS`
 * `SWIFT_GUI_LIBS`
+
+Every executable, bundle and shared library with Swift sources is linked
+with `SWIFT_RUNTIME_OBJ_FILE` (by default
+`$(SWIFT_RUNTIME_ARCH_LIB_DIR)/swiftrt.o`), as the Swift driver does.  It
+registers the image's Swift metadata sections with the Swift runtime, which
+dynamic casts to Swift protocols need to find the image's conformances.
 
 `gnustep-config --swift-flags` prints the active Swift compiler flags.
 `gnustep-config --swift-libs` prints the Swift library and runtime path flags.
