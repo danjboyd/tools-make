@@ -489,13 +489,13 @@ ifeq ($(INTERNAL_NEEDS_GUI), yes)
 # useful ALL_LIB_DIRS would be without ALL_LIBS, anyway touching flags
 # is dangerous as things might stop compiling for some people who
 # were relying on the old behaviour)
-ALL_LIBS =								     \
+ALL_LIBS = $(INTERNAL_SWIFT_LIBS)						     \
      $(ADDITIONAL_GUI_LIBS) $(AUXILIARY_GUI_LIBS) $(GUI_LIBS)		     \
      $(BACKEND_LIBS) $(ADDITIONAL_TOOL_LIBS) $(AUXILIARY_TOOL_LIBS)	     \
      $(FND_LIBS) $(ADDITIONAL_OBJC_LIBS) $(AUXILIARY_OBJC_LIBS) $(OBJC_LIBS) \
      $(SYSTEM_LIBS) $(TARGET_SYSTEM_LIBS)
 else
-ALL_LIBS =								     \
+ALL_LIBS = $(INTERNAL_SWIFT_LIBS)						     \
      $(ADDITIONAL_TOOL_LIBS) $(AUXILIARY_TOOL_LIBS)			     \
      $(FND_LIBS) $(ADDITIONAL_OBJC_LIBS) $(AUXILIARY_OBJC_LIBS) $(OBJC_LIBS) \
      $(SYSTEM_LIBS) $(TARGET_SYSTEM_LIBS)
